@@ -121,11 +121,38 @@ def reset_game(): #棋盘初始化
 
 #导入字体
 def load_font():
-    font_path = os.path.join(BASE_DIR,"ZCOOLKuaiLe-Regular.ttf")
-    if os.path.exists(font_path):
-        return pygame.font.Font(font_path, 24)
-    else:
-        return pygame.font.SysFont("Arial", 20)
+    # 1) 优先使用随项目分发的本地中文字体
+    local_font_paths = [
+        os.path.join(BASE_DIR, "ZCOOLKuaiLe-Regular.ttf"),
+        os.path.join(BASE_DIR, "assets", "fonts", "ZCOOLKuaiLe-Regular.ttf"),
+        os.path.join(BASE_DIR, "assets", "fonts", "NotoSansSC-Regular.otf"),
+        os.path.join(BASE_DIR, "assets", "fonts", "SourceHanSansSC-Regular.otf"),
+    ]
+    for font_path in local_font_paths:
+        if os.path.exists(font_path):
+            return pygame.font.Font(font_path, 24)
+
+    # 2) 尝试系统常见中文字体（跨平台候选链）
+    #    注意：SysFont 仅按名称匹配，若系统无此字体会回退到默认字体
+    preferred_system_fonts = [
+        "PingFang SC",
+        "Heiti SC",
+        "Hiragino Sans GB",
+        "Microsoft YaHei",
+        "SimHei",
+        "Noto Sans CJK SC",
+        "WenQuanYi Zen Hei",
+    ]
+    for font_name in preferred_system_fonts:
+        try:
+            matched = pygame.font.match_font(font_name)
+            if matched:
+                return pygame.font.Font(matched, 24)
+        except pygame.error:
+            continue
+
+    # 3) 最后才使用通用 fallback（可能不含中文字形）
+    return pygame.font.SysFont("Arial", 20)
 
 font = load_font()
 
