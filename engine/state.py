@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 @dataclass
 class GameState:
     board_size: int = 19
+    language: str = "zh-CN"
 
     board: list[list[int]] = field(default_factory=list)
     forbidden: list[list[bool]] = field(default_factory=list)

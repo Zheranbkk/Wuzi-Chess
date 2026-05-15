@@ -117,3 +117,49 @@ def clear_matching_lines(board: list[list[int]], board_size: int) -> bool:
         board[y][x] = 0
 
     return len(to_clear) > 0
+
+
+def has_double_end_block(
+    board: list[list[int]],
+    x: int,
+    y: int,
+    mover_color: int,
+    board_size: int,
+) -> bool:
+    """
+    判断在(x, y)落子后，是否对任意一条对手连续棋子段形成了“双端封死”。
+    规则口径：
+    - 仅考虑与落子点相邻的一侧存在对手连续段。
+    - 单子也算连续段（长度>=1）。
+    - 只要本次落子封住一端，且该连续段另一端已被边界或非空棋子封住，则判定为成功。
+    """
+    if not (0 <= x < board_size and 0 <= y < board_size):
+        return False
+
+    opponent = 1 if mover_color == 2 else 2
+    directions = [(1, 0), (0, 1), (1, 1), (1, -1)]
+
+    for dx, dy in directions:
+        for sx, sy in ((dx, dy), (-dx, -dy)):
+            nx, ny = x + sx, y + sy
+            if not (0 <= nx < board_size and 0 <= ny < board_size):
+                continue
+            if board[ny][nx] != opponent:
+                continue
+
+            # 沿该方向收集连续对手棋子
+            cx, cy = nx, ny
+            while 0 <= cx < board_size and 0 <= cy < board_size and board[cy][cx] == opponent:
+                cx += sx
+                cy += sy
+
+            # 另一端（远端）位置
+            far_x, far_y = cx, cy
+
+            # 近端被当前落子(x,y)封住，检查远端是否也被封住（边界或非空）
+            if not (0 <= far_x < board_size and 0 <= far_y < board_size):
+                return True
+            if board[far_y][far_x] != 0:
+                return True
+
+    return False

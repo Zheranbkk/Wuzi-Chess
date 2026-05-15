@@ -7,7 +7,8 @@ import os
 import sys
 from engine.cards import ALL_CARDS, CARD_DESCRIPTIONS
 from engine.card_effects import CardContext, DEPLOY_CARDS, play_immediate_card
-from engine.rules import check_win, clear_matching_lines
+from engine.i18n import translate
+from engine.rules import check_win, clear_matching_lines, has_double_end_block
 from engine.state import GameState
 
 # 获取路径
@@ -32,6 +33,10 @@ tetris_shapes = {              # 俄罗斯方块的结构预设
     "T": [(0,0), (1,0), (2,0), (1,1)],
 }
 card_descriptions = CARD_DESCRIPTIONS
+
+
+def tr(key, **kwargs):
+    return translate(state.language, key, **kwargs)
 
 
 
@@ -80,7 +85,7 @@ def handle_card_click(player_hand, player_turn, player_has_acted, player_color):
 
     for idx, card_name in enumerate(player_hand):
         padding = 10
-        card_surface = font.render(card_name, True, (255, 255, 255))
+        card_surface = font.render(tr(f"card.{card_name}"), True, (255, 255, 255))
         text_rect = card_surface.get_rect()
         box_width = text_rect.width + padding * 2
         box_height = text_rect.height + padding * 2
@@ -111,6 +116,7 @@ def handle_card_click(player_hand, player_turn, player_has_acted, player_color):
                 now_ms=pygame.time.get_ticks,
                 start_tetris=lambda _: generate_next_tetris_block(),
                 switch_turn=switch_turn,
+                tr=tr,
             )
             play_immediate_card(card_name, card_ctx, idx)
             return
@@ -155,6 +161,37 @@ def load_font():
     return pygame.font.SysFont("Arial", 20)
 
 font = load_font()
+
+
+def choose_language():
+    temp_screen = pygame.display.set_mode((700, 280))
+    chooser_font = pygame.font.SysFont(None, 40)
+    title_font = pygame.font.SysFont(None, 36)
+    english_btn = pygame.Rect(90, 130, 220, 70)
+    chinese_btn = pygame.Rect(390, 130, 220, 70)
+
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                x, y = pygame.mouse.get_pos()
+                if english_btn.collidepoint(x, y):
+                    return "en"
+                if chinese_btn.collidepoint(x, y):
+                    return "zh-CN"
+
+        temp_screen.fill((235, 220, 180))
+        title = title_font.render("Select Language / 选择语言", True, (0, 0, 0))
+        temp_screen.blit(title, title.get_rect(center=(350, 70)))
+        pygame.draw.rect(temp_screen, (20, 20, 20), english_btn)
+        pygame.draw.rect(temp_screen, (20, 20, 20), chinese_btn)
+        en_text = chooser_font.render("English", True, (255, 255, 255))
+        zh_text = chooser_font.render("简体中文", True, (255, 255, 255))
+        temp_screen.blit(en_text, en_text.get_rect(center=english_btn.center))
+        temp_screen.blit(zh_text, zh_text.get_rect(center=chinese_btn.center))
+        pygame.display.flip()
 
 def load_scaled_image_or_none(filename):
     path = os.path.join(BASE_DIR, filename)
@@ -221,7 +258,10 @@ def draw_piece_with_fallback(surface, board_x, board_y, piece_type):
 width, height = 1400,1000
 GRID_LEFT = (width - (CELL_SIZE * (BOARD_SIZE - 1))) // 2
 screen = pygame.display.set_mode((width, height))
-pygame.display.set_caption("五子棋")
+state.language = choose_language()
+pygame.display.set_mode((width, height))
+screen = pygame.display.get_surface()
+pygame.display.set_caption(tr("window.title"))
 
 #主循环
 running = True
@@ -325,7 +365,7 @@ while running:
 
 
                     # 打出提示
-                    state.last_card_played = f"{'黑方' if state.selected_card_owner == 'black' else '白方'} 使用了 两极反转"
+                    state.last_card_played = tr('tip.used_polarity', actor=tr('label.black') if state.selected_card_owner == 'black' else tr('label.white'))
 
                     # 清除临时状态
                     state.selected_card = None
@@ -356,7 +396,7 @@ while running:
                             state.white_hand.remove(state.selected_card)
                         state.white_has_acted = True
 
-                    state.last_card_played = f"{'黑方' if state.selected_card_owner == 'black' else '白方'} 使用了 战术核弹"
+                    state.last_card_played = tr('tip.used_nuke', actor=tr('label.black') if state.selected_card_owner == 'black' else tr('label.white'))
 
                     # 清除临时状态
                     state.selected_card = None
@@ -390,7 +430,7 @@ while running:
                             state.white_hand.remove(state.selected_card)
                         state.white_has_acted = True
 
-                    state.last_card_played = f"{'黑方' if state.selected_card_owner == 'black' else '白方'} 使用了 阴阳屏障"
+                    state.last_card_played = tr('tip.used_barrier', actor=tr('label.black') if state.selected_card_owner == 'black' else tr('label.white'))
 
                     # 清除准备状态
                     state.selected_card = None
@@ -433,7 +473,7 @@ while running:
                                 if check_win(state.board, grid_x, grid_y, state.piece_color, BOARD_SIZE, state.barriers_centers):
                                     state.winner = state.piece_color
 
-                            if not state.cards_locked:
+                            if has_double_end_block(state.board, grid_x, grid_y, state.piece_color, BOARD_SIZE):
                                 state.acting_hand.append(random.choice(all_cards))
 
                             if state.has_acted_flag == "black":
@@ -480,7 +520,7 @@ while running:
                 else:
                     state.tetris_mode = False
                     state.cards_locked = False  # 恢复出牌
-                    state.last_card_played = "俄罗斯方块阶段结束，恢复普通对局！"
+                    state.last_card_played = tr("tip.tetris_end")
 
     #幽灵棋子状态进入
     if state.ghost_start_time and not state.ghost_mode:
@@ -489,7 +529,7 @@ while running:
             state.ghost_mode = True
             state.ghost_rounds_left = 6
             state.ghost_start_time = None
-            state.last_card_played = "已进入幽灵棋子模式，持续6回合！"
+            state.last_card_played = tr("tip.ghost_active")
             state.ghost_recent_moves.clear()
 
             # 将当前所有棋子变为灰色，并记录原始颜色
@@ -504,7 +544,7 @@ while running:
     if state.ghost_mode and state.ghost_rounds_left <= 0:
         state.ghost_mode = False
         state.cards_locked = False
-        state.last_card_played = "幽灵棋子效果结束，棋盘恢复！"
+        state.last_card_played = tr("tip.ghost_end")
 
         # 恢复棋盘颜色
         for y in range(BOARD_SIZE):
@@ -541,8 +581,8 @@ while running:
         )
 
     # 绘制对白方和黑方的提示
-    white_label = font.render("白方", True, (0, 0, 0))
-    black_label = font.render("黑方", True, (0, 0, 0))
+    white_label = font.render(tr("label.white"), True, (0, 0, 0))
+    black_label = font.render(tr("label.black"), True, (0, 0, 0))
 
     # 白方标识
     white_label_pos = (GRID_LEFT - 220, GRID_TOP - 40)
@@ -554,9 +594,9 @@ while running:
     
     # 绘制回合信息
     if state.black_turn:
-        turn_text = font.render("当前轮到：黑方", True, (0, 0, 0))
+        turn_text = font.render(tr("turn.black"), True, (0, 0, 0))
     else:
-        turn_text = font.render("当前轮到：白方", True, (0, 0, 0))
+        turn_text = font.render(tr("turn.white"), True, (0, 0, 0))
 
     # 放在屏幕上方居中
     turn_rect = turn_text.get_rect(center=(width // 2, 10))
@@ -570,7 +610,7 @@ while running:
     hovered_card_name = None 
     # 绘制白方手牌（左边）
     for idx, card_name in enumerate(state.left_hand):
-        card_surface = font.render(card_name, True, (255, 255, 255))
+        card_surface = font.render(tr(f"card.{card_name}"), True, (255, 255, 255))
         text_rect = card_surface.get_rect()
         padding = 10
         box_width = text_rect.width + padding * 2
@@ -591,7 +631,7 @@ while running:
 
     # 绘制黑方手牌（右边）
     for idx, card_name in enumerate(state.right_hand):
-        card_surface = font.render(card_name, True, (255, 255, 255))
+        card_surface = font.render(tr(f"card.{card_name}"), True, (255, 255, 255))
         text_rect = card_surface.get_rect()
         padding = 10
         box_width = text_rect.width + padding * 2
@@ -618,7 +658,7 @@ while running:
 
     
     if hovered_card_name and hovered_card_name in card_descriptions:
-        desc_text = card_descriptions[hovered_card_name]
+        desc_text = tr(card_descriptions[hovered_card_name])
         lines = desc_text.split('\n')
         for i, line in enumerate(lines):
             desc_surface = font.render(line, True, (0, 0, 0))
@@ -701,12 +741,12 @@ while running:
 
     #回归基本功提示
     if state.cards_locked:
-        warning_text = font.render("手牌功能已禁用，请落子", True, (255, 0, 0))
+        warning_text = font.render(tr("warning.cards_locked"), True, (255, 0, 0))
         warning_rect = warning_text.get_rect(center=(width // 2, GRID_TOP - 30))
         screen.blit(warning_text, warning_rect)
 
     if assets_fallback_mode:
-        fallback_text = font.render("部分素材缺失：已启用基础图形渲染模式", True, (120, 60, 0))
+        fallback_text = font.render(tr("warning.fallback_assets"), True, (120, 60, 0))
         fallback_rect = fallback_text.get_rect(center=(width // 2, height - 20))
         screen.blit(fallback_text, fallback_rect)
 
@@ -714,19 +754,19 @@ while running:
     again_button = None
     quit_button = None
     if state.winner != 0:
-        msg = "黑方胜利！" if state.winner == 1 else "白方胜利！"
+        msg = tr("result.black_win") if state.winner == 1 else tr("result.white_win")
         text_surface = font.render(msg, True, (0, 0, 0))
         text_rect = text_surface.get_rect(center=(width // 2, 40))
         screen.blit(text_surface, text_rect)
 
     #绘制“再来一局”按钮
-        again_surface = font.render("再来一局", True, (255, 255, 255))
+        again_surface = font.render(tr("button.play_again"), True, (255, 255, 255))
         state.again_rect = again_surface.get_rect(center=(width // 2 - 100, height - 60))
         pygame.draw.rect(screen, (0, 0, 0), state.again_rect.inflate(20, 10))
         screen.blit(again_surface, state.again_rect)
 
     #绘制“退出游戏”按钮
-        quit_surface = font.render("退出游戏", True, (255, 255, 255))
+        quit_surface = font.render(tr("button.quit"), True, (255, 255, 255))
         state.quit_rect = quit_surface.get_rect(center=(width // 2 + 100, height - 60))
         pygame.draw.rect(screen, (0, 0, 0), state.quit_rect.inflate(20, 10))
         screen.blit(quit_surface, state.quit_rect)

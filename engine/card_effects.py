@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Callable
 
 from engine.state import GameState
+from engine.i18n import translate
 
 
 @dataclass
@@ -18,10 +19,11 @@ class CardContext:
     now_ms: Callable[[], int]
     start_tetris: Callable[[str], None]
     switch_turn: Callable[[], None]
+    tr: Callable[[str], str]
 
 
 def _actor_label(player_color: str) -> str:
-    return "黑方" if player_color == "black" else "白方"
+    return "label.black" if player_color == "black" else "label.white"
 
 
 def _set_acted(state: GameState, player_color: str) -> None:
@@ -45,13 +47,13 @@ def _play_then_finish(ctx: CardContext, idx: int) -> None:
 
 def _card_confuse(ctx: CardContext, idx: int) -> None:
     ctx.state.confuse_turns_left = 3
-    ctx.state.last_card_played = f"{_actor_label(ctx.player_color)} 使用了 定位混淆"
+    ctx.state.last_card_played = translate(ctx.state.language, "tip.used_confuse", actor=ctx.tr(_actor_label(ctx.player_color)))
     _play_then_finish(ctx, idx)
 
 
 def _card_lock_cards(ctx: CardContext, idx: int) -> None:
     ctx.state.cards_locked = True
-    ctx.state.last_card_played = "手牌功能已禁用，请落子"
+    ctx.state.last_card_played = translate(ctx.state.language, "tip.used_lock")
     _play_then_finish(ctx, idx)
 
 
@@ -67,9 +69,9 @@ def _card_steal(ctx: CardContext, idx: int) -> None:
         stolen_card = ctx.random_choice(opponent_hand)
         opponent_hand.remove(stolen_card)
         self_hand.append(stolen_card)
-        ctx.state.last_card_played = f"{_actor_label(ctx.player_color)} 偷走了对方的一张手牌: {stolen_card}！"
+        ctx.state.last_card_played = translate(ctx.state.language, "tip.steal_success", actor=ctx.tr(_actor_label(ctx.player_color)), card=ctx.tr(f"card.{stolen_card}"))
     else:
-        ctx.state.last_card_played = f"{_actor_label(ctx.player_color)} 想偷卡牌，但对方手牌为空！"
+        ctx.state.last_card_played = translate(ctx.state.language, "tip.steal_fail", actor=ctx.tr(_actor_label(ctx.player_color)))
 
     _play_then_finish(ctx, idx)
 
@@ -79,7 +81,7 @@ def _card_swap_hands(ctx: CardContext, idx: int) -> None:
     ctx.player_hand.pop(idx)
     ctx.state.black_hand, ctx.state.white_hand = ctx.state.white_hand, ctx.state.black_hand
     ctx.state.left_hand, ctx.state.right_hand = ctx.state.white_hand, ctx.state.black_hand
-    ctx.state.last_card_played = f"{_actor_label(ctx.player_color)} 使用了 战术换家：双方交换了全部手牌！"
+    ctx.state.last_card_played = translate(ctx.state.language, "tip.swap_hands", actor=ctx.tr(_actor_label(ctx.player_color)))
 
     _set_acted(ctx.state, ctx.player_color)
     _consume_confuse_and_switch(ctx.state, ctx.switch_turn)
@@ -90,7 +92,7 @@ def _card_restock(ctx: CardContext, idx: int) -> None:
     for _ in range(2):
         ctx.player_hand.append(ctx.random_choice(ctx.all_cards))
 
-    ctx.state.last_card_played = f"{_actor_label(ctx.player_color)} 使用了 库存补充，抽取了 2 张手牌"
+    ctx.state.last_card_played = translate(ctx.state.language, "tip.restock", actor=ctx.tr(_actor_label(ctx.player_color)))
     _set_acted(ctx.state, ctx.player_color)
     _consume_confuse_and_switch(ctx.state, ctx.switch_turn)
 
@@ -103,7 +105,7 @@ def _card_ghost(ctx: CardContext, idx: int) -> None:
     ctx.player_hand.pop(idx)
 
     _set_acted(ctx.state, ctx.player_color)
-    ctx.state.last_card_played = f"{_actor_label(ctx.player_color)} 使用了 幽灵棋子：请记住棋盘，5秒后将进入幽灵模式！"
+    ctx.state.last_card_played = translate(ctx.state.language, "tip.ghost_prepare", actor=ctx.tr(_actor_label(ctx.player_color)))
     ctx.switch_turn()
 
 
@@ -114,12 +116,17 @@ def _card_tetris(ctx: CardContext, idx: int) -> None:
     ctx.state.tetris_current_player = ctx.player_color
     ctx.start_tetris(ctx.player_color)
 
-    ctx.state.last_card_played = f"{_actor_label(ctx.player_color)} 激活了俄罗斯方块模式！"
+    ctx.state.last_card_played = translate(ctx.state.language, "tip.tetris_activate", actor=ctx.tr(_actor_label(ctx.player_color)))
     _play_then_finish(ctx, idx)
 
 
 def _card_default(ctx: CardContext, idx: int, card_name: str) -> None:
-    ctx.state.last_card_played = f"{_actor_label(ctx.player_color)}使用了 {card_name}"
+    ctx.state.last_card_played = translate(
+        ctx.state.language,
+        "tip.card_used",
+        actor=ctx.tr(_actor_label(ctx.player_color)),
+        card=ctx.tr(f"card.{card_name}"),
+    )
     _play_then_finish(ctx, idx)
 
 

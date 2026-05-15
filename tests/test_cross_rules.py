@@ -13,6 +13,7 @@ def make_ctx(state: GameState, hand: list[str], player_color: str):
         now_ms=lambda: 5000,
         start_tetris=lambda _: None,
         switch_turn=lambda: None,
+        tr=lambda k: k,
     )
 
 

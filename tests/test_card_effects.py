@@ -29,6 +29,7 @@ def test_restock_draws_two_cards_and_switches_turn():
         now_ms=FakeClock(),
         start_tetris=lambda _: None,
         switch_turn=switch_turn,
+        tr=lambda k: k,
     )
 
     play_immediate_card("库存补充", ctx, 0)
@@ -58,6 +59,7 @@ def test_ghost_card_locks_cards_and_sets_timer():
         now_ms=clock,
         start_tetris=lambda _: None,
         switch_turn=switch_turn,
+        tr=lambda k: k,
     )
 
     play_immediate_card("幽灵棋子", ctx, 0)
@@ -82,6 +84,7 @@ def test_swap_hands_consumes_card_before_swap():
         now_ms=FakeClock(),
         start_tetris=lambda _: None,
         switch_turn=lambda: None,
+        tr=lambda k: k,
     )
 
     play_immediate_card("战术换家", ctx, 0)
